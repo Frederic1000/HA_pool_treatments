@@ -1,0 +1,163 @@
+# ── lovelace_pool.yaml ────────────────────────────────────────────────────────
+# This is a VIEW to embed in your main dashboard.
+#
+# How to add it in Home Assistant:
+#   1. Open your main dashboard > ⋮ > Edit dashboard
+#   2. Click the "+" tab to add a new view
+#   3. Choose "Panel" or "Sidebar", give it the title "Pool"
+#   4. Switch to YAML mode and paste the content below
+# ─────────────────────────────────────────────────────────────────────────────
+
+title: Pool
+icon: mdi:pool
+cards:
+
+  # ── 1. CURRENT MEASUREMENTS ────────────────────────────────────────────────
+  - type: entities
+    title: Current measurements
+    icon: mdi:water
+    entities:
+      - entity: input_number.pool_temperature
+        name: Temperature
+      - entity: input_number.pool_ph
+        name: pH
+      - entity: input_number.pool_free_chlorine
+        name: Free chlorine
+
+  # ── 2. WATER STATUS (visual gauges) ────────────────────────────────────────
+  # pH target range: 7.0 – 7.6
+  - type: horizontal-stack
+    cards:
+      - type: gauge
+        entity: input_number.pool_ph
+        name: pH
+        min: 6
+        max: 9
+        needle: true
+        severity:
+          green: 7.0
+          yellow: 7.6
+          red: 8.0
+      - type: gauge
+        entity: input_number.pool_free_chlorine
+        name: Chlorine
+        min: 0
+        max: 5
+        unit: "mg/L"
+        needle: true
+        severity:
+          green: 1.0
+          yellow: 3.0
+          red: 4.0
+      - type: gauge
+        entity: input_number.pool_temperature
+        name: Temperature
+        min: 10
+        max: 35
+        unit: "°C"
+        needle: true
+        severity:
+          green: 18
+          yellow: 28
+          red: 32
+
+  # ── 3. TREATMENT RECOMMENDATIONS ───────────────────────────────────────────
+  - type: entities
+    title: Treatment recommendations
+    icon: mdi:flask-outline
+    entities:
+      - entity: sensor.pool_recommendation_ph
+        name: pH+ quantity
+        icon: mdi:arrow-up-circle-outline
+      - entity: sensor.pool_recommendation_ph_2
+        name: pH- quantity
+        icon: mdi:arrow-down-circle-outline
+      - entity: sensor.pool_recommendation_shock_chlorine
+        name: Shock chlorine (fast treatment)
+        icon: mdi:lightning-bolt
+      - entity: sensor.pool_recommendation_slow_chlorine
+        name: Slow chlorine / tablets (maintenance)
+        icon: mdi:circle-outline
+
+  # ── 4. LOG A TREATMENT ─────────────────────────────────────────────────────
+  - type: entities
+    title: Log a treatment
+    icon: mdi:pencil-outline
+    entities:
+      - entity: input_number.pool_treatment_slow_chlorine
+        name: Slow chlorine (tablets)
+      - entity: input_number.pool_treatment_shock_chlorine
+        name: Shock chlorine (granules)
+      - entity: input_number.pool_treatment_ph_plus
+        name: pH+
+      - entity: input_number.pool_treatment_ph_minus
+        name: pH-
+      - type: divider
+      - entity: input_button.pool_log_treatment
+        name: ✅ Save treatment
+        icon: mdi:content-save-check-outline
+
+  # ── 5. HISTORY GRAPH ───────────────────────────────────────────────────────
+  - type: history-graph
+    title: 📈 pH & Chlorine history
+    hours_to_show: 168
+    entities:
+      - entity: input_number.pool_ph
+        name: pH
+      - entity: input_number.pool_free_chlorine
+        name: Free chlorine
+
+  # ── 6. TREATMENT LOG ───────────────────────────────────────────────────────
+  # Requires: custom:multiple-logbook-card (HACS)
+  # hidden_state: "0*" hides entries when value is 0 (no treatment applied)
+  - title: 📒 Treatment log
+    type: custom:multiple-logbook-card
+    desc: true
+    group_by_day: true
+    date_format: DD/MM/YYYY HH:mm
+    show:
+      state: true
+      duration: false
+      start_date: true
+      end_date: false
+      icon: true
+      separator: false
+      entity_name: true
+    entities:
+      - entity: input_number.pool_temperature
+        custom_logs: false
+        hidden_state:
+          - 0*
+      - entity: input_number.pool_treatment_ph_plus
+        custom_logs: false
+        hidden_state:
+          - 0*
+      - entity: input_number.pool_treatment_ph_minus
+        custom_logs: false
+        hidden_state:
+          - 0*
+      - entity: input_number.pool_treatment_shock_chlorine
+        custom_logs: false
+        hidden_state:
+          - 0*
+      - entity: input_number.pool_treatment_slow_chlorine
+        custom_logs: false
+        hidden_state:
+          - 0*
+
+  # ── 7. PRODUCT RATIOS ──────────────────────────────────────────────────────
+  - type: entities
+    title: Product ratios (g / unit / m³)
+    icon: mdi:tune
+    show_header_toggle: false
+    entities:
+      - entity: input_number.pool_ratio_slow_chlorine
+        name: Slow chlorine
+      - entity: input_number.pool_ratio_shock_chlorine
+        name: Shock chlorine
+      - entity: input_number.pool_ratio_ph_plus
+        name: pH+
+      - entity: input_number.pool_ratio_ph_minus
+        name: pH-
+      - entity: input_number.pool_volume
+        name: Volume
