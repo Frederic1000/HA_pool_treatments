@@ -1,0 +1,235 @@
+# ── packages/pool/pool.yaml ───────────────────────────────────────────────────
+# Self-contained package for pool water analysis and treatment tracking.
+#
+# INSTALLATION:
+#   1. Copy this file to:  config/packages/pool/pool.yaml
+#   2. Add ONE line to configuration.yaml:
+#        homeassistant:
+#          packages: !include_dir_named packages
+#   3. Restart Home Assistant
+# ─────────────────────────────────────────────────────────────────────────────
+
+input_number:
+
+  # ── Pool settings ─────────────────────────────────────────────────────────
+  pool_volume:
+    name: "Pool volume"
+    min: 1
+    max: 1000
+    step: 1
+    mode: box                          # renders as an input field, not a slider
+    unit_of_measurement: "m³"
+    initial: 40
+    icon: "mdi:pool"
+
+  # ── Measurements ──────────────────────────────────────────────────────────
+  pool_temperature:
+    name: "Pool temperature"
+    min: 0
+    max: 40
+    step: 0.5
+    mode: box
+    unit_of_measurement: "°C"
+    icon: "mdi:thermometer-water"
+
+  pool_ph:
+    name: "Pool pH"
+    min: 6
+    max: 9
+    step: 0.1
+    mode: box
+    unit_of_measurement: "pH"
+    icon: "mdi:water-opacity"
+
+  pool_free_chlorine:
+    name: "Pool free chlorine"
+    min: 0
+    max: 10
+    step: 0.1
+    mode: box
+    unit_of_measurement: "mg/L"
+    icon: "mdi:flask-outline"
+
+  # ── Product ratios (g to correct by 1 unit / 1 m³) ───────────────────────
+  pool_ratio_slow_chlorine:
+    name: "Ratio slow chlorine (tablets)"
+    min: 1
+    max: 200
+    step: 1
+    mode: box
+    initial: 16
+    unit_of_measurement: "g/m³"
+    icon: "mdi:circle-outline"
+
+  pool_ratio_shock_chlorine:
+    name: "Ratio shock chlorine (granules)"
+    min: 1
+    max: 200
+    step: 1
+    mode: box
+    initial: 10
+    unit_of_measurement: "g/m³"
+    icon: "mdi:lightning-bolt"
+
+  pool_ratio_ph_plus:
+    name: "Ratio pH+ (granules)"
+    min: 1
+    max: 200
+    step: 1
+    mode: box
+    initial: 15
+    unit_of_measurement: "g/m³"
+    icon: "mdi:arrow-up-circle-outline"
+
+  pool_ratio_ph_minus:
+    name: "Ratio pH- (granules)"
+    min: 1
+    max: 200
+    step: 1
+    mode: box
+    initial: 15
+    unit_of_measurement: "g/m³"
+    icon: "mdi:arrow-down-circle-outline"
+
+  # ── Treatment quantities applied ──────────────────────────────────────────
+  pool_treatment_slow_chlorine:
+    name: "Treatment slow chlorine"
+    min: 0
+    max: 5000
+    step: 10
+    mode: box
+    unit_of_measurement: "g"
+    icon: "mdi:circle-outline"
+
+  pool_treatment_shock_chlorine:
+    name: "Treatment shock chlorine"
+    min: 0
+    max: 5000
+    step: 10
+    mode: box
+    unit_of_measurement: "g"
+    icon: "mdi:lightning-bolt"
+
+  pool_treatment_ph_plus:
+    name: "Treatment pH+"
+    min: 0
+    max: 5000
+    step: 10
+    mode: box
+    unit_of_measurement: "g"
+    icon: "mdi:arrow-up-circle-outline"
+
+  pool_treatment_ph_minus:
+    name: "Treatment pH-"
+    min: 0
+    max: 5000
+    step: 10
+    mode: box
+    unit_of_measurement: "g"
+    icon: "mdi:arrow-down-circle-outline"
+
+# ── Input button ──────────────────────────────────────────────────────────────
+input_button:
+  pool_log_treatment:
+    name: "Log pool treatment"
+    icon: "mdi:content-save-check-outline"
+
+# ── Template sensors (recommendations) ───────────────────────────────────────
+template:
+  # trigger-based sensors update immediately when any input_number changes.
+  # Without triggers, HA only recalculates template sensors on its own schedule.
+  - trigger:
+      # Re-evaluate whenever any relevant input_number value changes
+      - platform: state
+        entity_id:
+          - input_number.pool_ph
+          - input_number.pool_volume
+          - input_number.pool_ratio_ph_plus
+          - input_number.pool_ratio_ph_minus
+          - input_number.pool_free_chlorine
+          - input_number.pool_ratio_shock_chlorine
+          - input_number.pool_ratio_slow_chlorine
+    sensor:
+      # Target pH range: 7.0 – 7.6
+      # Formula: (target - current) × ratio × volume
+      - name: "Pool recommendation pH+"
+        unique_id: pool_recommendation_ph_plus
+        unit_of_measurement: "g"
+        icon: "mdi:arrow-up-circle-outline"
+        state: >
+          {% set ph = states('input_number.pool_ph') | float %}
+          {% set vol = states('input_number.pool_volume') | float %}
+          {% set r = states('input_number.pool_ratio_ph_plus') | float %}
+          {% if ph < 7.0 %}
+            {{ ((7.0 - ph) * r * vol) | round(0) | int }}
+          {% else %}0{% endif %}
+
+      - name: "Pool recommendation pH-"
+        unique_id: pool_recommendation_ph_minus
+        unit_of_measurement: "g"
+        icon: "mdi:arrow-down-circle-outline"
+        state: >
+          {% set ph = states('input_number.pool_ph') | float %}
+          {% set vol = states('input_number.pool_volume') | float %}
+          {% set r = states('input_number.pool_ratio_ph_minus') | float %}
+          {% if ph > 7.6 %}
+            {{ ((ph - 7.6) * r * vol) | round(0) | int }}
+          {% else %}0{% endif %}
+
+      # Target free chlorine range: 1.0 – 3.0 mg/L
+      - name: "Pool recommendation shock chlorine"
+        unique_id: pool_recommendation_shock_chlorine
+        unit_of_measurement: "g"
+        icon: "mdi:lightning-bolt"
+        state: >
+          {% set cl = states('input_number.pool_free_chlorine') | float %}
+          {% set vol = states('input_number.pool_volume') | float %}
+          {% set r = states('input_number.pool_ratio_shock_chlorine') | float %}
+          {% if cl < 1.0 %}
+            {{ ((1.0 - cl) * r * vol) | round(0) | int }}
+          {% else %}0{% endif %}
+
+      - name: "Pool recommendation slow chlorine"
+        unique_id: pool_recommendation_slow_chlorine
+        unit_of_measurement: "g"
+        icon: "mdi:circle-outline"
+        state: >
+          {% set cl = states('input_number.pool_free_chlorine') | float %}
+          {% set vol = states('input_number.pool_volume') | float %}
+          {% set r = states('input_number.pool_ratio_slow_chlorine') | float %}
+          {% if cl < 1.0 %}
+            {{ ((1.0 - cl) * r * vol) | round(0) | int }}
+          {% else %}0{% endif %}
+
+# ── Automation ────────────────────────────────────────────────────────────────
+automation pool_log_treatment:
+  alias: "Pool - Log treatment"
+  description: >
+    Triggered by the "Log pool treatment" button.
+    Resets all treatment quantities to 0 after they have been recorded
+    in the history via the multiple-logbook-card (which reads entity state changes).
+  trigger:
+    - platform: state
+      entity_id: input_button.pool_log_treatment
+  action:
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.pool_treatment_slow_chlorine
+      data:
+        value: 0
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.pool_treatment_shock_chlorine
+      data:
+        value: 0
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.pool_treatment_ph_plus
+      data:
+        value: 0
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.pool_treatment_ph_minus
+      data:
+        value: 0
+  mode: single
